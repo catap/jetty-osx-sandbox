@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="jetty-osx-sandbox" default="sign">
+
+    <property environment="env"/>
+
+    <property file="build.properties" />
+
+    <property name="folder.lib" value="lib"/>
+    <property name="folder.src" value="src"/>
+    <property name="folder.native" value="native"/>
+    <property name="folder.bin" value="bin"/>
+    <property name="folder.classes" value="${folder.bin}/classes"/>
+    <property name="folder.res" value="res"/>
+
+    <!-- Compile target -->
+    <target name="compile">
+        <mkdir dir="${folder.classes}"/>
+        <javac destDir="${folder.classes}"
+               srcdir="${folder.src}"
+               includejavaruntime="true"
+               includeantruntime="true"
+               deprecation="true"
+               debug="true"
+               encoding="UTF-8"
+               failonerror="true">
+            <compilerarg line="-Xlint:all"/>
+            <classpath>
+                <dirset dir="${basedir}" includes="${folder.classes}"/>
+                <fileset dir="${folder.lib}" includes="**/*.jar"/>
+            </classpath>
+        </javac>
+        <copy todir="${folder.classes}" includeEmptyDirs="false">
+            <fileset dir="${folder.src}">
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+
+        <exec executable="/usr/libexec/java_home" outputproperty="libexec_javahome" />
+        <condition property="javahome" value="${env.JAVA_HOME}" else="${libexec_javahome}">
+            <isset property="env.JAVA_HOME"/>
+        </condition>
+
+        <exec executable="xcrun" outputproperty="osx.sdk.dir">
+            <arg value="--show-sdk-path" />
+        </exec>
+
+        <exec executable="${cc}" failonerror="true">
+            <arg line="${arch64} ${arch32}"/>
+            <arg value="-I"/>
+            <arg value="${javahome}/include"/>
+            <arg value="-I"/>
+            <arg value="${javahome}/include/darwin"/>
+            <arg value="-o"/>
+            <arg value="${folder.classes}/libLoginItemHelper.dylib"/>
+            <arg value='-DLIBJLI_DYLIB="${javahome}/jre/lib/jli/libjli.dylib"'/>
+            <arg value="-framework"/>
+            <arg value="Cocoa"/>
+            <arg value="-framework"/>
+            <arg value="ServiceManagement"/>
+            <arg value="-F"/>
+            <arg value="${javahome}/../.."/>
+            <arg value="-isysroot"/>
+            <arg value="${osx.sdk.dir}"/>
+            <arg value="-mmacosx-version-min=10.7"/>
+            <arg value="-dynamiclib" />
+            <arg value="native/LoginItemHelper.m"/>
+        </exec>
+    </target>
+
+    <!-- Clean target -->
+    <target name="clean">
+        <delete dir="${folder.bin}"/>
+    </target>
+
+    <!-- Package target -->
+    <target name="package" depends="compile">
+        <jar destfile="${folder.bin}/${ant.project.name}.jar" index="true">
+            <fileset dir="${folder.classes}" includes="**/*.class"/>
+            <zipgroupfileset dir="${folder.lib}" includes="**/*.jar"/>
+        </jar>
+    </target>
+
+    <!-- Bundle as OSX app -->
+    <target name="bundle" depends="package">
+        <taskdef name="bundleapp"
+                 classpath="lib/appbundler-1.0ea.jar"
+                 classname="com.oracle.appbundler.AppBundlerTask"/>
+
+        <exec executable="/usr/libexec/java_home" outputproperty="libexec_javahome" />
+        <condition property="javahome" value="${env.JAVA_HOME}" else="${libexec_javahome}">
+            <isset property="env.JAVA_HOME"/>
+        </condition>
+
+        <bundleapp
+                jvmrequired="1.8"
+                outputdirectory="${folder.bin}"
+                name="${ant.project.name}"
+                displayname="Jetty in OSX sandbox"
+                executableName="${ant.project.name}"
+                identifier="com.github.catap.jetty_osx_sandbox"
+                shortversion="1.0"
+                version="1.0"
+                mainclassname="com.github.catap.jetty_osx_sandbox.Launcher"
+                applicationCategory="public.app-category.developer-tools">
+
+            <classpath file="${folder.bin}/${ant.project.name}.jar"/>
+
+            <option value="-XstartOnFirstThread"/>
+            <option value="-Dapple.laf.useScreenMenuBar=true"/>
+            <option value="-Dcom.apple.macos.use-file-dialog-packages=true"/>
+            <option value="-Dcom.apple.macos.useScreenMenuBar=true"/>
+            <option value="-Dapple.awt.application.name=MyApp"/>
+            <option value="-Dcom.apple.smallTabs=true"/>
+            <option value="-Djava.library.path=$APP_ROOT/Contents/Java/" />
+        </bundleapp>
+
+        <copy todir="${folder.bin}/${ant.project.name}.app/Contents/Java" includeEmptyDirs="false">
+            <fileset dir="${folder.classes}">
+                <exclude name="**/*.class"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <!-- Bundle as OSX Login Item Helper-->
+    <target name="bundle_helper" depends="bundle">
+        <taskdef name="bundleapp"
+                 classpath="lib/appbundler-1.0ea.jar"
+                 classname="com.oracle.appbundler.AppBundlerTask"/>
+
+        <exec executable="/usr/libexec/java_home" outputproperty="libexec_javahome" />
+        <condition property="javahome" value="${env.JAVA_HOME}" else="${libexec_javahome}">
+            <isset property="env.JAVA_HOME"/>
+        </condition>
+
+        <mkdir dir="${folder.bin}/${ant.project.name}.app/Contents/Library/LoginItems"/>
+
+        <bundleapp
+                jvmrequired="1.8"
+                outputdirectory="${folder.bin}/${ant.project.name}.app/Contents/Library/LoginItems"
+                name="${ant.project.name}_helper"
+                displayname="Jetty in OSX sandbox Login Helper"
+                executableName="${ant.project.name}_helper"
+                identifier="com.github.catap.jetty_osx_sandbox_helper"
+                shortversion="1.0"
+                version="1.0"
+                hideDockIcon="true"
+                mainclassname="com.github.catap.jetty_osx_sandbox.Helper"
+                applicationCategory="public.app-category.developer-tools">
+
+            <classpath file="${folder.bin}/${ant.project.name}.jar"/>
+
+            <option value="-XstartOnFirstThread"/>
+            <option value="-Dapple.laf.useScreenMenuBar=true"/>
+            <option value="-Dcom.apple.macos.use-file-dialog-packages=true"/>
+            <option value="-Dcom.apple.macos.useScreenMenuBar=true"/>
+            <option value="-Dapple.awt.application.name=MyApp"/>
+            <option value="-Dcom.apple.smallTabs=true"/>
+            <option value="-Djava.library.path=$APP_ROOT/Contents/Java/" />
+        </bundleapp>
+
+        <copy todir="${folder.bin}/${ant.project.name}.app/Contents/Library/LoginItems/${ant.project.name}_helper.app/Contents/Java" includeEmptyDirs="false">
+            <fileset dir="${folder.classes}">
+                <exclude name="**/*.class"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <!-- Sign the app -->
+    <target name="sign" depends="bundle_helper">
+        <exec executable="codesign" failonerror="true">
+            <arg value="-s" />
+            <arg value="${sign_as}" />
+            <arg value="-f" />
+            <arg value="--deep" />
+            <arg value="--entitlements" />
+            <arg value="${ant.project.name}.entitlements" />
+            <arg value="${folder.bin}/${ant.project.name}.app" />
+        </exec>
+    </target>
+</project>
