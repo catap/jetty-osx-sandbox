@@ -9,7 +9,7 @@ JNIEXPORT jboolean JNICALL Java_com_github_catap_jetty_1osx_1sandbox_LoginItemHe
     const char *nativeID = (*env)->GetStringUTFChars(env, identifier, 0);
     NSString *bundleID = [NSString stringWithFormat:@"%s", nativeID];
 
-    return SMLoginItemSetEnabled(bundleID, true);
+    return SMLoginItemSetEnabled((__bridge CFStringRef)bundleID, true);
 }
 
 
@@ -18,7 +18,7 @@ JNIEXPORT jboolean JNICALL Java_com_github_catap_jetty_1osx_1sandbox_LoginItemHe
     const char *nativeID = (*env)->GetStringUTFChars(env, identifier, 0);
     NSString *bundleID = [NSString stringWithFormat:@"%s", nativeID];
 
-    return SMLoginItemSetEnabled(bundleID, false);
+    return SMLoginItemSetEnabled((__bridge CFStringRef)bundleID, false);
 }
 
 
@@ -27,21 +27,20 @@ JNIEXPORT jboolean JNICALL Java_com_github_catap_jetty_1osx_1sandbox_LoginItemHe
     const char *nativeID = (*env)->GetStringUTFChars(env, identifier, 0);
     NSString *bundleID = [NSString stringWithFormat:@"%s", nativeID];
 
-    NSArray * jobDicts = nil;
+    CFArrayRef ref = SMCopyAllJobDictionaries(kSMDomainUserLaunchd);
+    NSArray *jobs = (__bridge NSArray *)ref;
 
-    jobDicts = (NSArray *)SMCopyAllJobDictionaries( kSMDomainUserLaunchd );
+    if((jobs != nil) && [jobs count] > 0) {
 
-    if ( (jobDicts != nil) && [jobDicts count] > 0 ) {
+        for(NSDictionary *job in jobs) {
 
-        for ( NSDictionary * job in jobDicts ) {
-
-            if ( [bundleID isEqualToString:[job objectForKey:@"Label"]] ) {
-                    CFRelease((CFDictionaryRef)jobDicts); jobDicts = nil;
+            if ([bundleID isEqualToString:[job objectForKey:@"Label"]]) {
+                    CFRelease(ref);
                     return JNI_TRUE;
             }
         }
 
-        CFRelease((CFDictionaryRef)jobDicts); jobDicts = nil;
+        CFRelease(ref);
     }
 
     return JNI_FALSE;
