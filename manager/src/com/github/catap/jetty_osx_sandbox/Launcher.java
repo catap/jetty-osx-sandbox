@@ -9,7 +9,7 @@ import org.eclipse.swt.widgets.Shell;
 
 public class Launcher {
 
-    static String loginItemID = "com.github.catap.jetty_osx_sandbox_helper";
+    static String loginItemID = "com.github.catap.jetty_osx_sandbox_daemon";
 
     public static void main(String[] args) {
         Display display = new Display();

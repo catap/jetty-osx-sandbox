@@ -9,14 +9,16 @@
     <property name="folder.src" value="src"/>
     <property name="folder.native" value="native"/>
     <property name="folder.bin" value="bin"/>
-    <property name="folder.classes" value="${folder.bin}/classes"/>
-    <property name="folder.res" value="res"/>
+    <property name="folder.classes" value="classes"/>
 
-    <!-- Compile target -->
-    <target name="compile">
-        <mkdir dir="${folder.classes}"/>
-        <javac destDir="${folder.classes}"
-               srcdir="${folder.src}"
+    <property name="folder.daemon" value="daemon"/>
+    <property name="folder.manager" value="manager"/>
+
+    <!-- Compile manager target -->
+    <target name="compile-manager">
+        <mkdir dir="${folder.bin}/${folder.manager}/${folder.classes}"/>
+        <javac destDir="${folder.bin}/${folder.manager}/${folder.classes}"
+               srcdir="${folder.manager}/${folder.src}"
                includejavaruntime="true"
                includeantruntime="true"
                deprecation="true"
@@ -25,12 +27,12 @@
                failonerror="true">
             <compilerarg line="-Xlint:all"/>
             <classpath>
-                <dirset dir="${basedir}" includes="${folder.classes}"/>
-                <fileset dir="${folder.lib}" includes="**/*.jar"/>
+                <dirset dir="${basedir}" includes="${folder.bin}/${folder.manager}/${folder.classes}"/>
+                <fileset dir="${folder.manager}/${folder.lib}" includes="**/*.jar"/>
             </classpath>
         </javac>
-        <copy todir="${folder.classes}" includeEmptyDirs="false">
-            <fileset dir="${folder.src}">
+        <copy todir="${folder.bin}/${folder.manager}/${folder.classes}" includeEmptyDirs="false">
+            <fileset dir="${folder.manager}/${folder.src}">
                 <exclude name="**/*.java"/>
             </fileset>
         </copy>
@@ -51,7 +53,7 @@
             <arg value="-I"/>
             <arg value="${javahome}/include/darwin"/>
             <arg value="-o"/>
-            <arg value="${folder.classes}/libLoginItemHelper.dylib"/>
+            <arg value="${folder.bin}/${folder.manager}/${folder.classes}/libLoginItemHelper.dylib"/>
             <arg value='-DLIBJLI_DYLIB="${javahome}/jre/lib/jli/libjli.dylib"'/>
             <arg value="-framework"/>
             <arg value="Cocoa"/>
@@ -63,20 +65,51 @@
             <arg value="${osx.sdk.dir}"/>
             <arg value="-mmacosx-version-min=10.7"/>
             <arg value="-dynamiclib" />
-            <arg value="native/LoginItemHelper.m"/>
+            <arg value="${folder.manager}/${folder.native}/LoginItemHelper.m"/>
         </exec>
     </target>
+
+    <!-- Compile daemon target -->
+    <target name="compile-daemon">
+        <mkdir dir="${folder.bin}/${folder.daemon}/${folder.classes}"/>
+        <javac destDir="${folder.bin}/${folder.daemon}/${folder.classes}"
+               srcdir="${folder.daemon}/${folder.src}"
+               includejavaruntime="true"
+               includeantruntime="true"
+               deprecation="true"
+               debug="true"
+               encoding="UTF-8"
+               failonerror="true">
+            <compilerarg line="-Xlint:all"/>
+            <classpath>
+                <dirset dir="${basedir}" includes="${folder.bin}/${folder.daemon}/${folder.classes}"/>
+                <fileset dir="${folder.daemon}/${folder.lib}" includes="**/*.jar"/>
+            </classpath>
+        </javac>
+        <copy todir="${folder.bin}/${folder.daemon}/${folder.classes}" includeEmptyDirs="false">
+            <fileset dir="manager/src">
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="compile" depends="compile-daemon,compile-manager"/>
 
     <!-- Clean target -->
     <target name="clean">
         <delete dir="${folder.bin}"/>
     </target>
 
-    <!-- Package target -->
+    <!-- Package targets -->
     <target name="package" depends="compile">
-        <jar destfile="${folder.bin}/${ant.project.name}.jar" index="true">
-            <fileset dir="${folder.classes}" includes="**/*.class"/>
-            <zipgroupfileset dir="${folder.lib}" includes="**/*.jar"/>
+        <jar destfile="${folder.bin}/${ant.project.name}_manager.jar" index="true">
+            <fileset dir="${folder.bin}/${folder.manager}/${folder.classes}" includes="**/*.class"/>
+            <zipgroupfileset dir="${folder.manager}/${folder.lib}" includes="**/*.jar"/>
+        </jar>
+
+        <jar destfile="${folder.bin}/${ant.project.name}_daemon.jar" index="true">
+            <fileset dir="${folder.bin}/${folder.daemon}/${folder.classes}" includes="**/*.class"/>
+            <zipgroupfileset dir="${folder.daemon}/${folder.lib}" includes="**/*.jar"/>
         </jar>
     </target>
 
@@ -85,11 +118,6 @@
         <taskdef name="bundleapp"
                  classpath="lib/appbundler-1.0ea.jar"
                  classname="com.oracle.appbundler.AppBundlerTask"/>
-
-        <exec executable="/usr/libexec/java_home" outputproperty="libexec_javahome" />
-        <condition property="javahome" value="${env.JAVA_HOME}" else="${libexec_javahome}">
-            <isset property="env.JAVA_HOME"/>
-        </condition>
 
         <bundleapp
                 jvmrequired="1.8"
@@ -103,7 +131,7 @@
                 mainclassname="com.github.catap.jetty_osx_sandbox.Launcher"
                 applicationCategory="public.app-category.developer-tools">
 
-            <classpath file="${folder.bin}/${ant.project.name}.jar"/>
+            <classpath file="${folder.bin}/${ant.project.name}_manager.jar"/>
 
             <option value="-XstartOnFirstThread"/>
             <option value="-Dapple.laf.useScreenMenuBar=true"/>
@@ -115,58 +143,32 @@
         </bundleapp>
 
         <copy todir="${folder.bin}/${ant.project.name}.app/Contents/Java" includeEmptyDirs="false">
-            <fileset dir="${folder.classes}">
-                <exclude name="**/*.class"/>
+            <fileset dir="${folder.bin}/${folder.manager}/${folder.classes}">
+                <include name="**/*.dylib"/>
             </fileset>
         </copy>
-    </target>
-
-    <!-- Bundle as OSX Login Item Helper-->
-    <target name="bundle_helper" depends="bundle">
-        <taskdef name="bundleapp"
-                 classpath="lib/appbundler-1.0ea.jar"
-                 classname="com.oracle.appbundler.AppBundlerTask"/>
-
-        <exec executable="/usr/libexec/java_home" outputproperty="libexec_javahome" />
-        <condition property="javahome" value="${env.JAVA_HOME}" else="${libexec_javahome}">
-            <isset property="env.JAVA_HOME"/>
-        </condition>
 
         <mkdir dir="${folder.bin}/${ant.project.name}.app/Contents/Library/LoginItems"/>
 
         <bundleapp
                 jvmrequired="1.8"
                 outputdirectory="${folder.bin}/${ant.project.name}.app/Contents/Library/LoginItems"
-                name="${ant.project.name}_helper"
-                displayname="Jetty in OSX sandbox Login Helper"
-                executableName="${ant.project.name}_helper"
-                identifier="com.github.catap.jetty_osx_sandbox_helper"
+                name="${ant.project.name}_daemon"
+                displayname="Jetty in OSX sandbox Daemon"
+                executableName="${ant.project.name}_daemon"
+                identifier="com.github.catap.jetty_osx_sandbox_daemon"
                 shortversion="1.0"
                 version="1.0"
                 hideDockIcon="true"
-                mainclassname="com.github.catap.jetty_osx_sandbox.Helper"
+                mainclassname="com.github.catap.jetty_osx_sandbox.Daemon"
                 applicationCategory="public.app-category.developer-tools">
 
-            <classpath file="${folder.bin}/${ant.project.name}.jar"/>
-
-            <option value="-XstartOnFirstThread"/>
-            <option value="-Dapple.laf.useScreenMenuBar=true"/>
-            <option value="-Dcom.apple.macos.use-file-dialog-packages=true"/>
-            <option value="-Dcom.apple.macos.useScreenMenuBar=true"/>
-            <option value="-Dapple.awt.application.name=MyApp"/>
-            <option value="-Dcom.apple.smallTabs=true"/>
-            <option value="-Djava.library.path=$APP_ROOT/Contents/Java/" />
+            <classpath file="${folder.bin}/${ant.project.name}_daemon.jar"/>
         </bundleapp>
-
-        <copy todir="${folder.bin}/${ant.project.name}.app/Contents/Library/LoginItems/${ant.project.name}_helper.app/Contents/Java" includeEmptyDirs="false">
-            <fileset dir="${folder.classes}">
-                <exclude name="**/*.class"/>
-            </fileset>
-        </copy>
     </target>
 
     <!-- Sign the app -->
-    <target name="sign" depends="bundle_helper">
+    <target name="sign" depends="bundle">
         <exec executable="codesign" failonerror="true">
             <arg value="-s" />
             <arg value="${sign_as}" />
@@ -177,4 +179,6 @@
             <arg value="${folder.bin}/${ant.project.name}.app" />
         </exec>
     </target>
+
+    <target name="all" depends="clean,bundle" />
 </project>
