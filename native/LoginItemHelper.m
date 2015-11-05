@@ -3,6 +3,25 @@
 
 #include <jni.h>
 
+
+JNIEXPORT jboolean JNICALL Java_com_github_catap_jetty_1osx_1sandbox_LoginItemHelper_setEnabled
+  (JNIEnv *env, jclass thisObj, jstring identifier) {
+    const char *nativeID = (*env)->GetStringUTFChars(env, identifier, 0);
+    NSString *bundleID = [NSString stringWithFormat:@"%s", nativeID];
+
+    return SMLoginItemSetEnabled(bundleID, true);
+}
+
+
+JNIEXPORT jboolean JNICALL Java_com_github_catap_jetty_1osx_1sandbox_LoginItemHelper_setDisabled
+  (JNIEnv *env, jclass thisObj, jstring identifier) {
+    const char *nativeID = (*env)->GetStringUTFChars(env, identifier, 0);
+    NSString *bundleID = [NSString stringWithFormat:@"%s", nativeID];
+
+    return SMLoginItemSetEnabled(bundleID, false);
+}
+
+
 JNIEXPORT jboolean JNICALL Java_com_github_catap_jetty_1osx_1sandbox_LoginItemHelper_getEnabled
   (JNIEnv *env, jclass thisObj, jstring identifier) {
     const char *nativeID = (*env)->GetStringUTFChars(env, identifier, 0);

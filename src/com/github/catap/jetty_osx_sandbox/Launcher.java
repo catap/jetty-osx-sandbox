@@ -24,10 +24,14 @@ public class Launcher {
             @Override
             public void widgetSelected(SelectionEvent selectionEvent) {
                 if (button.getSelection()) {
-                    LoginItemHelper.setEnabled(loginItemID);
+                    if (!LoginItemHelper.setEnabled(loginItemID)) {
+                        System.err.println("Can't register Login Item");
+                    }
                     button.setSelection(true);
                 } else {
-                    LoginItemHelper.setDisabled(loginItemID);
+                    if (!LoginItemHelper.setDisabled(loginItemID)) {
+                        System.err.println("Can't deregister Login Item");
+                    }
                     button.setSelection(false);
                 }
             }
